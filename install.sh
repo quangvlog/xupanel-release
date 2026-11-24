@@ -97,7 +97,7 @@ install -d -m 0755 /var/www /etc/xupanel
 
 cat > /etc/systemd/system/xupanel-helper.service <<'UNIT'
 [Unit]
-Description=xupanel root helper
+Description=xupanel system service
 After=network.target
 
 [Service]
