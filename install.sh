@@ -24,11 +24,13 @@ systemctl is-active --quiet xupanel 2>/dev/null && die "xupanel đã cài trên 
 
 echo "==> Cài Nginx"
 export DEBIAN_FRONTEND=noninteractive
-if grep -qs '^deb cdrom:' /etc/apt/sources.list; then
-  echo "    Tắt nguồn cài từ đĩa CD trong /etc/apt/sources.list (bản sao lưu: sources.list.xupanel-bak)"
-  cp /etc/apt/sources.list /etc/apt/sources.list.xupanel-bak
-  sed -i 's/^deb cdrom:/# deb cdrom:/' /etc/apt/sources.list
-fi
+CDROM='^[[:space:]]*deb(-src)?[[:space:]]+(\[[^]]*\][[:space:]]+)?(cdrom:|file:/+(media/)?cdrom)'
+for f in /etc/apt/sources.list /etc/apt/sources.list.d/*.list; do
+  [ -f "$f" ] && grep -Eq "$CDROM" "$f" || continue
+  echo "    Tắt nguồn cài từ đĩa CD trong $f (bản sao lưu: $f.xupanel-bak)"
+  cp "$f" "$f.xupanel-bak"
+  sed -Ei "s@($CDROM)@# \\1@" "$f"
+done
 apt-get update -qq || die "apt-get update lỗi (xem thông báo ở trên). Sửa nguồn tải gói trong /etc/apt/sources.list rồi chạy lại lệnh cài"
 apt-get install -y -qq nginx curl ca-certificates >/dev/null || die "không cài được Nginx"
 
