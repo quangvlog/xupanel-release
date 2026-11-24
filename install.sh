@@ -6,33 +6,37 @@ REPO="${XUPANEL_REPO:-quangvlog/xupanel-release}"
 RELEASE="${XUPANEL_VERSION:-latest}"
 BIN_DIR="${XUPANEL_BIN_DIR:-}"
 DATA=/var/lib/xupanel
+LOG=/var/log/xupanel-install.log
 STAGING=""
 [ "${XUPANEL_ACME_STAGING:-0}" = 1 ] && STAGING=" -acme-staging"
 
-die() { echo "Lỗi: $*" >&2; exit 1; }
+die() { echo; echo "Loi: $*" >&2; echo "Chi tiet: $LOG" >&2; exit 1; }
+run() { "$@" >>"$LOG" 2>&1; }
 
-[ "$(id -u)" = 0 ] || die "cần chạy bằng root: sudo bash install.sh"
+[ "$(id -u)" = 0 ] || { echo "Loi: can chay bang root (sudo)" >&2; exit 1; }
+: >"$LOG"
 . /etc/os-release
-[ "${ID:-}" = ubuntu ] || die "xupanel hiện chỉ hỗ trợ Ubuntu"
-[ "${VERSION_ID%%.*}" -ge 20 ] || die "cần Ubuntu 20.04 trở lên, máy đang chạy $VERSION_ID"
+[ "${ID:-}" = ubuntu ] || die "xupanel hien chi ho tro Ubuntu"
+[ "${VERSION_ID%%.*}" -ge 20 ] || die "can Ubuntu 20.04 tro len, may dang chay $VERSION_ID"
 case "$(uname -m)" in
   x86_64) ARCH=amd64 ;;
   aarch64) ARCH=arm64 ;;
-  *) die "kiến trúc $(uname -m) chưa hỗ trợ" ;;
+  *) die "kien truc $(uname -m) chua ho tro" ;;
 esac
-systemctl is-active --quiet xupanel 2>/dev/null && die "xupanel đã cài trên máy này. Xem thông tin đăng nhập: sudo xupanel info"
+systemctl is-active --quiet xupanel 2>/dev/null && { echo "xupanel da cai tren may nay. Xem thong tin dang nhap: sudo xupanel info"; exit 0; }
 
-echo "==> Cài Nginx"
+echo "Dang cai dat xupanel, vui long doi 1-2 phut..."
+
 export DEBIAN_FRONTEND=noninteractive
 CDROM='^[[:space:]]*deb(-src)?[[:space:]]+(\[[^]]*\][[:space:]]+)?(cdrom:|file:/+(media/)?cdrom)'
 for f in /etc/apt/sources.list /etc/apt/sources.list.d/*.list; do
   [ -f "$f" ] && grep -Eq "$CDROM" "$f" || continue
-  echo "    Tắt nguồn cài từ đĩa CD trong $f (bản sao lưu: $f.xupanel-bak)"
+  echo "tat nguon CD trong $f, sao luu: $f.xupanel-bak" >>"$LOG"
   cp "$f" "$f.xupanel-bak"
   sed -Ei "s@($CDROM)@# \\1@" "$f"
 done
-apt-get update -qq || die "apt-get update lỗi (xem thông báo ở trên). Sửa nguồn tải gói trong /etc/apt/sources.list rồi chạy lại lệnh cài"
-apt-get install -y -qq nginx curl ca-certificates >/dev/null || die "không cài được Nginx"
+run apt-get update || die "apt-get update loi, kiem tra nguon tai goi trong /etc/apt/sources.list"
+run apt-get install -y nginx curl ca-certificates || die "khong cai duoc Nginx"
 
 if [ -z "$BIN_DIR" ]; then
   BIN_DIR="$(mktemp -d)"
@@ -43,21 +47,18 @@ if [ -z "$BIN_DIR" ]; then
     BASE="https://github.com/$REPO/releases/download/$RELEASE"
   fi
   PKG="xupanel-linux-$ARCH.tar.gz"
-  echo "==> Tải $PKG ($RELEASE)"
-  curl -fsSL --retry 3 -o "$BIN_DIR/$PKG" "$BASE/$PKG" || die "không tải được $BASE/$PKG"
-  curl -fsSL --retry 3 -o "$BIN_DIR/SHA256SUMS" "$BASE/SHA256SUMS" || die "không tải được SHA256SUMS"
-  (cd "$BIN_DIR" && grep " $PKG\$" SHA256SUMS | sha256sum -c --quiet -) || die "checksum không khớp, tệp tải về bị hỏng hoặc bị sửa"
-  tar -xzf "$BIN_DIR/$PKG" -C "$BIN_DIR"
+  run curl -fsSL --retry 3 -o "$BIN_DIR/$PKG" "$BASE/$PKG" || die "khong tai duoc $BASE/$PKG"
+  run curl -fsSL --retry 3 -o "$BIN_DIR/SHA256SUMS" "$BASE/SHA256SUMS" || die "khong tai duoc SHA256SUMS"
+  (cd "$BIN_DIR" && grep " $PKG\$" SHA256SUMS | sha256sum -c --quiet -) >>"$LOG" 2>&1 || die "checksum khong khop, tep tai ve bi hong hoac bi sua"
+  run tar -xzf "$BIN_DIR/$PKG" -C "$BIN_DIR"
 fi
 for f in xupanel xupanel-helper; do
-  [ -x "$BIN_DIR/$f" ] || die "không thấy $BIN_DIR/$f"
+  [ -x "$BIN_DIR/$f" ] || die "khong thay $BIN_DIR/$f"
 done
 
-echo "==> Tạo user hệ thống xupanel và www"
-id xupanel >/dev/null 2>&1 || useradd --system --user-group --no-create-home --home-dir "$DATA" --shell /usr/sbin/nologin xupanel
-id www >/dev/null 2>&1 || useradd --system --user-group --no-create-home --home-dir /var/www --shell /usr/sbin/nologin www
+id xupanel >/dev/null 2>&1 || run useradd --system --user-group --no-create-home --home-dir "$DATA" --shell /usr/sbin/nologin xupanel
+id www >/dev/null 2>&1 || run useradd --system --user-group --no-create-home --home-dir /var/www --shell /usr/sbin/nologin www
 
-echo "==> Chép chương trình"
 install -m 0755 "$BIN_DIR/xupanel" /usr/local/bin/xupanel
 install -m 0755 "$BIN_DIR/xupanel-helper" /usr/local/sbin/xupanel-helper
 install -d -m 0700 -o xupanel -g xupanel "$DATA"
@@ -100,27 +101,21 @@ ReadWritePaths=$DATA -/var/lib/xupanel-acme
 WantedBy=multi-user.target
 UNIT
 
-echo "==> Lấy IPv4 public"
-PUBLIC_IP="$(curl -4 -fsS --max-time 5 https://api.ipify.org || curl -4 -fsS --max-time 5 https://ifconfig.me || true)"
-
-echo "==> Khởi tạo panel"
-INFO="$(runuser -u xupanel -- /usr/local/bin/xupanel -data "$DATA" setup -public-ip "$PUBLIC_IP")"
+PUBLIC_IP="$(curl -4 -fsS --max-time 5 https://api.ipify.org 2>>"$LOG" || curl -4 -fsS --max-time 5 https://ifconfig.me 2>>"$LOG" || true)"
+INFO="$(runuser -u xupanel -- /usr/local/bin/xupanel -data "$DATA" setup -public-ip "$PUBLIC_IP" 2>>"$LOG")" || die "khong khoi tao duoc panel"
 PORT="$(sed -n 's/.*"port": *\([0-9]*\).*/\1/p' "$DATA/panel.json")"
 
 if command -v ufw >/dev/null && ufw status | grep -q "Status: active"; then
-  echo "==> Mở port $PORT, 80, 443 trên ufw"
-  ufw allow "$PORT/tcp" >/dev/null
-  ufw allow 80/tcp >/dev/null
-  ufw allow 443/tcp >/dev/null
+  run ufw allow "$PORT/tcp"
+  run ufw allow 80/tcp
+  run ufw allow 443/tcp
 fi
 
-systemctl daemon-reload
-systemctl enable --now xupanel-helper >/dev/null
-systemctl enable --now xupanel >/dev/null
+run systemctl daemon-reload
+run systemctl enable --now xupanel-helper
+run systemctl enable --now xupanel
 sleep 1
-systemctl is-active --quiet xupanel || die "panel không chạy được, xem log: journalctl -u xupanel -n 50"
+systemctl is-active --quiet xupanel || die "panel khong chay duoc, xem: journalctl -u xupanel -n 50"
 
 echo
 echo "$INFO"
-echo
-echo "Lưu lại thông tin trên. Xem lại địa chỉ: sudo xupanel info"
