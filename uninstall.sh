@@ -9,7 +9,7 @@ systemctl disable --now xupanel xupanel-helper >/dev/null 2>&1
 rm -f /etc/systemd/system/xupanel.service /etc/systemd/system/xupanel-helper.service
 systemctl daemon-reload
 rm -f /usr/local/bin/xupanel /usr/local/sbin/xupanel-helper
-rm -rf /var/lib/xupanel /var/lib/xupanel-acme /run/xupanel /var/log/xupanel-install.log /var/log/xupanel-update.log
+rm -rf /var/lib/xupanel /var/lib/xupanel-acme /run/xupanel /var/log/xupanel-install.log /var/log/xupanel-job.log
 id xupanel >/dev/null 2>&1 && userdel xupanel
 
 echo "Da go xupanel."

@@ -63,8 +63,10 @@ for f in /etc/apt/sources.list /etc/apt/sources.list.d/*.list; do
   cp "$f" "$f.xupanel-bak"
   sed -Ei "s@($CDROM)@# \\1@" "$f"
 done
-run apt-get update || die "apt-get update loi, kiem tra nguon tai goi trong /etc/apt/sources.list"
-run apt-get install -y nginx curl ca-certificates || die "khong cai duoc Nginx"
+if ! command -v curl >/dev/null; then
+  run apt-get update || die "apt-get update loi, kiem tra nguon tai goi trong /etc/apt/sources.list"
+  run apt-get install -y curl ca-certificates || die "khong cai duoc curl"
+fi
 
 if [ -z "$BIN_DIR" ]; then
   BIN_DIR="$(mktemp -d)"
