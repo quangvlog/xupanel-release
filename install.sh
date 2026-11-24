@@ -25,6 +25,34 @@ case "$(uname -m)" in
 esac
 systemctl is-active --quiet xupanel 2>/dev/null && { echo "xupanel da cai tren may nay. Xem thong tin dang nhap: sudo xupanel info"; exit 0; }
 
+ADMIN_USER=""
+ADMIN_PASS=""
+if { exec 3</dev/tty; } 2>/dev/null; then
+  while :; do
+    printf "Nhap ten dang nhap (bo trong se tao ngau nhien): " >/dev/tty
+    read -r ADMIN_USER <&3 || ADMIN_USER=""
+    ADMIN_USER="$(printf '%s' "$ADMIN_USER" | tr 'A-Z' 'a-z')"
+    if [ -z "$ADMIN_USER" ] || [[ "$ADMIN_USER" =~ ^[a-z0-9_.-]{1,32}$ ]]; then break; fi
+    echo "  Chi dung chu a-z, so 0-9, dau _ . - , toi da 32 ky tu." >/dev/tty
+  done
+  while :; do
+    printf "Nhap mat khau (bo trong se tao ngau nhien): " >/dev/tty
+    read -rs ADMIN_PASS <&3 || ADMIN_PASS=""
+    echo >/dev/tty
+    [ -z "$ADMIN_PASS" ] && break
+    if [ "${#ADMIN_PASS}" -lt 8 ]; then
+      echo "  Mat khau can it nhat 8 ky tu." >/dev/tty
+      continue
+    fi
+    printf "Nhap lai mat khau: " >/dev/tty
+    read -rs AGAIN <&3 || AGAIN=""
+    echo >/dev/tty
+    [ "$AGAIN" = "$ADMIN_PASS" ] && break
+    echo "  Hai lan nhap khong khop, nhap lai." >/dev/tty
+  done
+  exec 3<&-
+fi
+
 echo "Dang cai dat xupanel, vui long doi 1-2 phut..."
 
 export DEBIAN_FRONTEND=noninteractive
@@ -102,7 +130,7 @@ WantedBy=multi-user.target
 UNIT
 
 PUBLIC_IP="$(curl -4 -fsS --max-time 5 https://api.ipify.org 2>>"$LOG" || curl -4 -fsS --max-time 5 https://ifconfig.me 2>>"$LOG" || true)"
-INFO="$(runuser -u xupanel -- /usr/local/bin/xupanel -data "$DATA" setup -public-ip "$PUBLIC_IP" 2>>"$LOG")" || die "khong khoi tao duoc panel"
+INFO="$(printf '%s\n' "$ADMIN_PASS" | runuser -u xupanel -- /usr/local/bin/xupanel -data "$DATA" setup -public-ip "$PUBLIC_IP" -user "$ADMIN_USER" -password-stdin 2>>"$LOG")" || die "khong khoi tao duoc panel"
 PORT="$(sed -n 's/.*"port": *\([0-9]*\).*/\1/p' "$DATA/panel.json")"
 
 if command -v ufw >/dev/null && ufw status | grep -q "Status: active"; then
