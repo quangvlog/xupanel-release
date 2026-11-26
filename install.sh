@@ -94,6 +94,8 @@ install -m 0755 "$BIN_DIR/xupanel-helper" /usr/local/sbin/xupanel-helper
 install -d -m 0700 -o xupanel -g xupanel "$DATA"
 install -d -m 0755 -o xupanel -g xupanel /var/lib/xupanel-acme
 install -d -m 0755 /www /www/wwwroot /www/wwwlogs /www/backup /www/server /etc/xupanel
+SWAP_MSG="$(/usr/local/bin/xupanel swap 2>&1)" || SWAP_MSG="Canh bao: khong tao duoc swap. $SWAP_MSG"
+printf '%s\n' "$SWAP_MSG" >>"$LOG"
 
 cat > /etc/systemd/system/xupanel-helper.service <<'UNIT'
 [Unit]
@@ -148,4 +150,5 @@ sleep 1
 systemctl is-active --quiet xupanel || die "panel khong chay duoc, xem: journalctl -u xupanel -n 50"
 
 echo
+echo "Swap: $(printf '%s\n' "$SWAP_MSG" | tail -n 1)"
 echo "$INFO"
