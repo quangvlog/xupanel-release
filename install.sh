@@ -87,13 +87,13 @@ for f in xupanel xupanel-helper; do
 done
 
 id xupanel >/dev/null 2>&1 || run useradd --system --user-group --no-create-home --home-dir "$DATA" --shell /usr/sbin/nologin xupanel
-id www >/dev/null 2>&1 || run useradd --system --user-group --no-create-home --home-dir /var/www --shell /usr/sbin/nologin www
+id www >/dev/null 2>&1 || run useradd --system --user-group --no-create-home --home-dir /www/wwwroot --shell /usr/sbin/nologin www
 
 install -m 0755 "$BIN_DIR/xupanel" /usr/local/bin/xupanel
 install -m 0755 "$BIN_DIR/xupanel-helper" /usr/local/sbin/xupanel-helper
 install -d -m 0700 -o xupanel -g xupanel "$DATA"
 install -d -m 0755 -o xupanel -g xupanel /var/lib/xupanel-acme
-install -d -m 0755 /var/www /etc/xupanel
+install -d -m 0755 /www /www/wwwroot /www/wwwlogs /www/backup /www/server /etc/xupanel
 
 cat > /etc/systemd/system/xupanel-helper.service <<'UNIT'
 [Unit]
