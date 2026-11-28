@@ -67,6 +67,8 @@ if ! command -v curl >/dev/null; then
   run apt-get update || die "apt-get update loi, kiem tra nguon tai goi trong /etc/apt/sources.list"
   run apt-get install -y curl ca-certificates || die "khong cai duoc curl"
 fi
+# 7-Zip cho muc File: giai nen .rar, .7z va zip co mat khau (khong bat buoc, loi thi bo qua)
+command -v 7z >/dev/null || run apt-get install -y p7zip-full || { run apt-get update && run apt-get install -y p7zip-full; } || true
 
 if [ -z "$BIN_DIR" ]; then
   BIN_DIR="$(mktemp -d)"
